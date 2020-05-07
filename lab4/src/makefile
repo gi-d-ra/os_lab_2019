@@ -1,5 +1,7 @@
 all: task1 task3
 
+# ./parallel_sum.out --seed 3 --array_size 10 --threads_num 3
+
 task5: ./task1/utils.c parallel_sum.c libsum
 	gcc -o parallel_sum.out parallel_sum.c ./task1/utils.c -std=gnu99 -I./task1 -L./ -lm -lsum -lpthread
 

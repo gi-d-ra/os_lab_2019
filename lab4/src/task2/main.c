@@ -1,42 +1,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <sys/types.h>
 #include <sys/wait.h>
 
-void print_zombie(pid_t zombie_pid) {
-  pid_t ps_pid = fork();
-  if (ps_pid >= 0) {
-    if (ps_pid > 0) {
-      waitpid(ps_pid, 0, 0);
-    }
-    if (ps_pid == 0) {
-      char str_pid[12];
-      sprintf(str_pid, "%d", zombie_pid);
-      execlp("ps", "ps", "-p", str_pid, NULL);
-      printf("Error: cannot execute ps\n");
-    }
-  }
-  else {
-    printf("Error: cannot print info about zombie\n");
-    return;
-  }
-}
+int main(void)
+{
+    pid_t pid;
+    int status;
 
-int main(int argc, char* argv[]) {
-  pid_t child = fork();
-
-  if (child >= 0) {
-    if (child > 0) {
-      printf("Zombie pid=%d\n", child);
-      // ps -p child
-      print_zombie(child);
+    if ((pid = fork()) < 0) {
+        perror("fork");
+        exit(1);
     }
-    if (child == 0)
-      return 0;
-  }
-  else {
-    printf("fork() failed\n");
-    return -1;
-  }
+
+    /* Child */
+    if (pid == 0){
+        exit(0);
+    }
+    printf("Zombie pid=%d\n", pid);
+
+    sleep(20);
+
+
+    pid = wait(&status);
+    if (WIFEXITED(status))
+        fprintf(stderr, "\n\t[%d]\tProcess %d exited with status %d.\n",
+                (int) getpid(), pid, WEXITSTATUS(status));
+
+    return 0;
 }
