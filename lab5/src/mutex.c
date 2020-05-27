@@ -15,12 +15,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void do_one_thing(int *);
-void do_another_thing(int *);
-void do_wrap_up(int);
-int common = 0; /* A shared variable for two threads */
-int r1 = 0, r2 = 0, r3 = 0;
-pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+// Hint: between reading and writing back 'int common'
+// there is a long cycle when an other process can
+// incerment a variable (mb a few times), then
+// a current process writes his value (can be less or equal)
+
+//#define USE_MTX
+
+static void do_one_thing(int *);
+static void do_another_thing(int *);
+static void do_wrap_up(int);
+static int common = 0; /* A shared variable for two threads */
+static int r1 = 0, r2 = 0, r3 = 0;
+static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
 int main() {
   pthread_t thread1, thread2;
@@ -52,12 +59,14 @@ int main() {
   return 0;
 }
 
-void do_one_thing(int *pnum_times) {
+static void do_one_thing(int *pnum_times) {
   int i, j, x;
   unsigned long k;
   int work;
   for (i = 0; i < 50; i++) {
-    // pthread_mutex_lock(&mut);
+#ifdef USE_MTX
+    pthread_mutex_lock(&mut);
+#endif
     printf("doing one thing\n");
     work = *pnum_times;
     printf("counter = %d\n", work);
@@ -65,16 +74,20 @@ void do_one_thing(int *pnum_times) {
     for (k = 0; k < 500000; k++)
       ;                 /* long cycle */
     *pnum_times = work; /* write back */
-	// pthread_mutex_unlock(&mut);
+#ifdef USE_MTX
+	  pthread_mutex_unlock(&mut);
+#endif
   }
 }
 
-void do_another_thing(int *pnum_times) {
+static void do_another_thing(int *pnum_times) {
   int i, j, x;
   unsigned long k;
   int work;
   for (i = 0; i < 50; i++) {
-    // pthread_mutex_lock(&mut);
+#ifdef USE_MTX
+    pthread_mutex_lock(&mut);
+#endif
     printf("doing another thing\n");
     work = *pnum_times;
     printf("counter = %d\n", work);
@@ -82,11 +95,13 @@ void do_another_thing(int *pnum_times) {
     for (k = 0; k < 500000; k++)
       ;                 /* long cycle */
     *pnum_times = work; /* write back */
-    // pthread_mutex_unlock(&mut);
+#ifdef USE_MTX
+	  pthread_mutex_unlock(&mut);
+#endif
   }
 }
 
-void do_wrap_up(int counter) {
+static void do_wrap_up(int counter) {
   int total;
   printf("All done, counter = %d\n", counter);
 }
