@@ -31,7 +31,7 @@ struct client_context {
 
 static pthread_mutex_t context_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-/* Per server task */
+// Задача на 1 сервер
 static void server_recieve_task(fac_server_t* server) {
   int socket = server->socket;
   char response[sizeof(uint64_t)];
@@ -50,14 +50,14 @@ static void server_recieve_task(fac_server_t* server) {
   pthread_mutex_unlock(&context_mtx);
 }
 
-/* Join threads and free data */
+//Джоиним потоки и освобождаем память
 static void finalize_tasks() {
   fac_server_list_t* iter = servers_list;
   for (int i = 0; iter != NULL; ) {
     if (i < servers_num)
-      /* Some servers may be unused
-       * but we have to free memory anyway
-       * */
+      //Некоторые серверы могут быть неиспользованы
+      //Но все равно нужно освободить память
+      //
       if (pthread_join(iter->server.thread, NULL) != 0) {
         printf("Error: cannot join %d\n", iter->server.thread);
         exit(1);
@@ -72,7 +72,7 @@ static void finalize_tasks() {
   }
 }
 
-/* <X.X.X.X>:<PORT> */
+// <ы.ы.ы.ы>:<ПОРТ>
 static fac_server_list_t* read_servers_file(const char* filename, int* len) {
   if (access(filename, F_OK) == -1) {
     printf("Error: file %s does not exist\n", filename);
@@ -132,8 +132,8 @@ int main(int argc, char **argv) {
   uint64_t k = -1;
   uint64_t mod = -1;
   context.res = 1;
-  /* Domain name max length is 255 bytes */
-  /* Linux file name max length is 255 bytes */
+  // Максимальная длина домена - 255 байт
+  // Максимальная длина названия файла в Linux - 255 байт
   char servers_file[255] = {'\0'};
 
   while (true) {
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
   context.start_args.end = k+1;
   context.start_args.mod = mod;
 
-  /* Get servers list */
+  // Получаем список серверов
   if ((servers_list = read_servers_file(servers_file, &servers_num)) == 0) {
     printf("Error: cannot read servers file\n");
     return -1;
@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
   printf("Got server list, len=%d\n", servers_num);
 #endif
 
-  /* Send data and wait for results */
+  //Отправляем данные и ждем результатов
   float block = (float)k / servers_num;
   fac_server_list_t* servers_list_item = servers_list;
   for (int i = 0; i < servers_num; i++) {
@@ -218,14 +218,14 @@ int main(int argc, char **argv) {
     server->args.end = round(block * (i + 1.f)) + 1;
     server->args.mod = mod;
 
-    /* Prepare socket */
+    // Подготовка сокета
     struct sockaddr_in server_sockaddr = create_sockaddr(server->port, 0);
     if (!inet_aton(server->ip, &server_sockaddr.sin_addr)) {
       printf("Error: cannot translate %s into int value\n", server->ip);
       return -1;
     }
 
-    /* Socket for every server */
+    // Сокет для каждого сервера
     int sck = socket(AF_INET, SOCK_STREAM, 0);
     if (sck < 0) {
       fprintf(stderr, "Socket creation failed!\n");
@@ -236,13 +236,13 @@ int main(int argc, char **argv) {
     printf("Socket [%s:%d] created\n", server->ip, server->port);
 #endif
 
-    /* Connects socket sck to address server */
+    // Коннектит сокет sck к address серверу */
     if (connect(sck, (struct sockaddr *)&server_sockaddr, sizeof(struct sockaddr_in)) < 0) {
       fprintf(stderr, "Connection failed\n");
       exit(1);
     }
 
-    /* Send actual data */
+    // Отправляем данные
     if (send(sck, &server->args, sizeof(fac_args_t), 0) < 0) {
       fprintf(stderr, "Send failed\n");
       exit(1);
@@ -251,17 +251,17 @@ int main(int argc, char **argv) {
     printf("Data sent\n");
 #endif
 
-    /* Run task to recieve result */
+    //Выполняем задание и получаем данные
     if (pthread_create(&server->thread, NULL, (void*)server_recieve_task, (void*)server) != 0) {
       printf("Error: cannot create thread to recieve from server [%s:%p]\n", server->ip, server->port);
       return -1;
     }
 
-    /* Iterate list */
+    //Итерируем список
     servers_list_item = servers_list_item->next;
   }
 
   finalize_tasks();
-  printf("Result: %lu\n", context.res);  /* Threads done - no need in mutex */
+  printf("Result: %lu\n", context.res);
   return 0;
 }

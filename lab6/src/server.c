@@ -81,11 +81,13 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  //socket() creates an endpoint for communication and returns a file descriptor that refers to that endpoint.
+  // AF_INET      IPv4 Internet protocols
+  // SOCK_STREAM Provides sequenced, reliable, two-way, connection-based byte streams.
+  // 0 - протокол
+  //
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-  /* AF_INET - IPv4, SOCK_STREAM - bidirectional, 0 - use
-   *  AF_INET option to determine protocol
-   * byte streams, supports connections
-   *  */
+
   if (server_fd < 0) {
     fprintf(stderr, "Can not create server socket!");
     return 1;
@@ -94,17 +96,17 @@ int main(int argc, char **argv) {
   struct sockaddr_in server = create_sockaddr(port, INADDR_ANY);
 
   int opt_val = 1;
-  /* Set socket flags:
-   * server_fd - socket descriptor
-   * SOL_SOCKET - socket level for flags
-   * SO_REUSEADDR - address supplied to bind() should
-   *  allow reuse of local addresses, if suppored
-   * &opt_val - set logical flag
-   * sizeof flag
-   * */
+  // Настройка опций сокета
+  // server_fd - дескриптор
+  // SOL_SOCKET - (level) задается для манипуляции флагами на уровне сокета.
+  // SO_REUSEADDR - Указывает, что правила проверки адресов, передаваемых с помощью вызова bind(2),
+  // должны позволять повторное использование локального адреса
+  //opt_val - задать логический флаг
+  //
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
-  /* Binds socket to local address (gives a name) */
+  // привязывает сокету server_fd локальный адресс server длинной sizeof(server)
+  //
   int err = bind(server_fd, (struct sockaddr *)&server, sizeof(server));
   if (err < 0) {
     if (errno == 13)
@@ -113,12 +115,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  /* Marks the socket server_fd as a passive that
-   *  will be used to accept incoming connections
-   * works only with SOCK_STREAM and SOCK_SEQPACKET
-   *
-   * 128 - maximum connection queue length
-   * */
+  //Выражает готовность сокета принимать входящие соединения и задает размер очереди
+  //
   err = listen(server_fd, 128);
   if (err < 0) {
     fprintf(stderr, "Could not listen on socket\n");
@@ -130,14 +128,12 @@ int main(int argc, char **argv) {
   while (true) {
     struct sockaddr_in client;
     socklen_t client_len = sizeof(client);
-    /* accept() is used only with listen() call
-     * accept() extracts the first connection request from queue and
-     *  creates a new socket and returns its descriptor
-     * original socket server_fd is unaffected by this call
-     *
-     * after accept() filled client struct, it will fill the exact client_len
-     * we are using a blocking socket, so accept() will wait for connections
-     * */
+
+    //Функция accept используется с сокетами, ориентированными на устанавление соединения (SOCK_STREAM, SOCK_SEQPACKET и SOCK_RDM).
+    // Эта функция извлекает первый запрос на соединение из очереди ожидающих соединений, создаёт новый подключенный сокет
+    //почти с такими же параметрами, что и у s, и выделяет для сокета новый файловый дескриптор, который и возвращается.
+    //Новый сокет более не находится в слушающем состоянии. Исходный сокет s не изменяется при этом вызове.
+    //
     int client_fd = accept(server_fd, (struct sockaddr *)&client, &client_len);
 
     if (client_fd < 0) {
@@ -145,21 +141,20 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    /* After we got a fd for a client, we can read from it
-     * For every client message calculate factorial
-     *  then send it back
-     * */
+    //Теперь после того как мы получили client_fd мы можем его считать
+    // Посчитать факториал для каждого сообщения клиента и вернуть его обратно
+    //
     while (true) {
       size_t buffer_size = sizeof(fac_args_t);
       char from_client[buffer_size];
 
-      /* Recieves a message from a socket
-       * if flags are not set, read() call is the same
-       * if no messages are available in the socket, wait for a one (nonblocking)
-       * */
+      // Получает сообщение от сокета
+      // Если флаги не выставлены, вызов read() не изменяется
+      // Если в сокете нет доступных сообщений, то ожидаем сообщение (nonblocking)
+      //
       int read = recv(client_fd, from_client, buffer_size, 0);
 
-      /* No data recieved */
+      // данные на чтение не получены
       if (!read)
         break;
       if (read < 0) {
@@ -187,7 +182,7 @@ int main(int argc, char **argv) {
       }
       fac_args_t args[tnum];
 
-      /* Start threads (why?) */
+      // Работаем, ребята, работаем
       float block = (float)(end - begin) / tnum;
       for (uint32_t i = 0; i < tnum; i++) {
         args[i].begin = begin + round(block * (float)i);
@@ -201,24 +196,25 @@ int main(int argc, char **argv) {
         }
       }
 
-      /* Join threads */
+      // Теперь джоиним потоки
       uint64_t total = 1;
       for (uint32_t i = 0; i < tnum; i++) {
         uint64_t result = 0;
         pthread_join(threads[i], (void **)&result);
-        /* We are using thread return value (why no shared data?) */
+        // Тут потоки возвращают значения.
         total = MultModulo(total, result, mod);
       }
 
       printf("Total: %llu\n", total);
 
-      /* Send back result */
+      // Отправляем результат обратно
       char buffer[sizeof(total)];
       memcpy(buffer, &total, sizeof(total));
 
-      /* Send a message to socket
-       * send() can be used only if socket is Connected
-       * accept() creates a Connected socket */
+      //Отправляем сообщение сокету
+      //send можно использовать, только если сокет находится в состоянии соединения
+      //accept() как раз создает соединенный сокет
+      //
       err = send(client_fd, buffer, sizeof(total), 0);
       if (err < 0) {
         fprintf(stderr, "Can't send data to client\n");
@@ -226,7 +222,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    /* On both sides, receptions and transmissions are disallowed */
+    //Выключай камплюктер!
     shutdown(client_fd, SHUT_RDWR);
     close(client_fd);
   }
