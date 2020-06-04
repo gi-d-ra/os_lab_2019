@@ -20,7 +20,7 @@
 // incerment a variable (mb a few times), then
 // a current process writes his value (can be less or equal)
 
-//#define USE_MTX
+#define USE_MTX
 
 static void do_one_thing(int *);
 static void do_another_thing(int *);
