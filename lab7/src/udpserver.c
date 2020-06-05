@@ -68,27 +68,16 @@ int main(int argc, char *argv[]) {
   }
   char mesg[buf_size], ipadr[16];
 
-  // Сокет
-  // AF_INET - IPv4 протокол Интернета
-  //!!!!!!
-  // --!!!SOCK_STREAM!!! - Обеспечивает создание двусторонних надежных и последовательных потоков байтов , поддерживающих соединения. Может также поддерживаться механизм
-  //внепоточных данных. - Что в нашем случае и делает это TCP соединением
-  //!!!!!
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     perror("socket problem");
     exit(1);
   }
 
-  // заполняет первые СЛЕН байтов той области памяти, на которую указывает servaddr, постоянным байтом 0.
-  //Функция htonl() преобразует узловой порядок расположения байтов положительного целого hostlong в сетевой порядок расположения байтов.
-  //Функция htons() преобразует узловой порядок расположения байтов положительного короткого целого hostshort в сетевой порядок расположения байтов
   memset(&servaddr, 0, SLEN);
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port = htons(port);
 
-  // привязывает сокету lfd локальный адресс servaddr длинной ***k-Pop****, ой точнее kSize
-  //
   if (bind(sockfd, (SADDR *)&servaddr, SLEN) < 0) {
     perror("bind problem");
     exit(1);
@@ -98,23 +87,19 @@ int main(int argc, char *argv[]) {
   while (1) {
     unsigned int len = SLEN;
 
-    //Нету никакого канала соединения с клиентом, поэтому его адресс нужно запомнить
-    //Системные вызовы recvfrom  используется для получения сообщений из сокета, и может использоваться
-    // для получения данных, независимо от того, является ли сокет ориентированным на соединения или нет.
+    /* No connection with client - remember his address */
     if ((n = recvfrom(sockfd, mesg, buf_size, 0, (SADDR *)&cliaddr, &len)) < 0) {
       perror("recvfrom");
       exit(1);
     }
     mesg[n] = 0;
 
-    //Данная функция преобразует структуру сетевого адреса s_addr в строку символов с сетевым адресом (типа AF_INET),
-    // которая затем копируется в символьный буфер !ipad pro!; размер этого буфера составляет 16 байтов.
     printf("REQUEST %s      FROM %s : %d\n", mesg,
            inet_ntop(AF_INET, (void *)&cliaddr.sin_addr.s_addr, ipadr, 16),
            ntohs(cliaddr.sin_port));
 
-    //Мы запоминали адресс климента в переменной n - теперь туда отправляем ответ
-    //sendto - отправляет сообщения в сокет
+    /* Use remembered address to send to client */
+    /* Echo */
     if (sendto(sockfd, mesg, n, 0, (SADDR *)&cliaddr, len) < 0) {
       perror("sendto");
       exit(1);

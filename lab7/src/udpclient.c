@@ -78,24 +78,14 @@ int main(int argc, char *argv[]) {
   printf("buf=%d port=%d ip=%s\n", buf_size, port, ip);
 #endif
 
-  // заполняет первые САЙЗ байтов той области памяти, на которую указывает servaddr, постоянным байтом 0.
   memset(&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  //Функция htons() преобразует узловой порядок расположения байтов положительного короткого целого port в сетевой порядок расположения байтов
   servaddr.sin_port = htons(port);
 
-  //Данная функция преобразует  ip в сетевой адрес (типа af), затем копирует полученную структуру с адресом в servaddr.sin_addr.
   if (inet_pton(AF_INET, ip, &servaddr.sin_addr) < 0) {
     perror("inet_pton problem");
     exit(1);
   }
-  // Сокет
-  // AF_INET - IPv4 протокол Интернета
-  //!!!!!!
-  // --!!!SOCK_STREAM!!! - Поддерживает датаграммы
-  // (ненадежные сообщения с ограниченной длиной и не поддерживающие соединения).
-  // Что и делает вид транспортировки данных UPD
-  //!!!!!
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     perror("socket problem");
     exit(1);
@@ -103,16 +93,14 @@ int main(int argc, char *argv[]) {
 
   write(1, "Enter string\n", 13);
 
-  //sendto - отправляет сообщения в сокет  
   while ((n = read(0, sendline, buf_size)) > 0) {
     if (sendto(sockfd, sendline, n, 0, (SADDR *)&servaddr, SLEN) == -1) {
       perror("sendto problem");
       exit(1);
     }
 
-    // заполняем нулями реквлайн
-    //Системные вызовы recvfrom  используется для получения сообщений из сокета, и может использоваться
-    // для получения данных, независимо от того, является ли сокет ориентированным на соединения или нет.
+    /* Get echo */
+    /* Do not remember sender (NULL, NULL) - no need */
     memset(recvline, 0, sizeof(recvline));
     if (recvfrom(sockfd, recvline, buf_size, 0, NULL, NULL) == -1) {
       perror("recvfrom problem");
